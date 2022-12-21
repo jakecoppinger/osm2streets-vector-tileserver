@@ -1,0 +1,6 @@
+.DS_Store
+node_modules
+dist/
+
+# See README how to generate this from https://github.com/a-b-street/osm2streets
+src/osm2streets-js/

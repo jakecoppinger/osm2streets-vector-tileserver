@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "module": "esnext",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "lib": ["es2017", "dom"],
+    "target": "es6",
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "strict": true,
+    "alwaysStrict": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedParameters": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["./src/**/*"]
+}
