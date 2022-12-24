@@ -1,6 +1,6 @@
 import { RouterContext } from 'koa-router';
 
-import { JsStreetNetwork } from "../osm2streets-js/osm2streets_js.js";
+import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
 
 // from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
 function tile2long(x: number, z: number): number {
@@ -70,7 +70,8 @@ export default class UserController {
     }
 
     console.log("Generating road network...");
-    const network = new JsStreetNetwork(osmXML, {
+    const boundaryGeojson = "";
+    const network = new JsStreetNetwork(osmXML, boundaryGeojson, {
       // Play with options in the sidebar at https://a-b-street.github.io/osm2streets/ :)
       debug_each_step: false,
       dual_carriageway_experiment: false,
