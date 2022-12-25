@@ -1,6 +1,9 @@
-import { RouterContext } from 'koa-router';
+import Router, { RouterContext } from 'koa-router';
 import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
 import geojsonvt from 'geojson-vt';
+// Can't find types for vt-pbf
+// @ts-ignore
+import vtpbf from 'vt-pbf';
 
 // from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
 function tile2long(x: number, z: number): number {
@@ -34,6 +37,12 @@ function generateOverpassTurboQueryUrl({ zoom, x, y }: { zoom: number, x: number
 
 const cache: any = {}
 
+
+function sendProtobuf(ctx: RouterContext, protobuf: any): void {
+      ctx.status = 200;
+      ctx.body = protobuf;
+      ctx.set('Content-Type', 'application/octet-stream');
+}
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
     // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
@@ -42,8 +51,7 @@ export default class UserController {
     const y = parseInt(ctx.params.y);
 
     if (cache[zoom] && cache[zoom][x] && cache[zoom][x][y]) {
-      ctx.status = 200;
-      ctx.body = cache[zoom][x][y];
+      sendProtobuf(ctx, cache[zoom][x][y]);
       return;
     }
 
@@ -83,7 +91,11 @@ export default class UserController {
     });
     console.log("Generating geojson...");
     const geometry = JSON.parse(network.toGeojsonPlain());
+    // const lanePolygons = network.toLanePolygonsGeojson();
+    // const laneMarkings = network.toLaneMarkingsGeojson();
 
+
+    console.log("Generating tileindex...");
     const tileIndex = geojsonvt(geometry, {
       maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
       tolerance: 3, // simplification tolerance (higher means simpler)
@@ -102,30 +114,29 @@ export default class UserController {
       return;
     }
 
-    // request a particular tile
+
+    console.log("Generating tile...");
     const tile = tileIndex.getTile(zoom, x, y);
     if (tile === null) {
       ctx.status = 500;
       ctx.body = "Error: Coudn't get tile from geojsonvt";
       return;
     }
-    console.log(JSON.stringify(tile, null,2))
 
+    // This is a Uint8Array
+    const rawArray = vtpbf.fromGeojsonVt({ 'geojsonLayer': tile });
+    const buf = Buffer.from(rawArray);
 
+    console.log(buf)
 
-    // const lanePolygons = network.toLanePolygonsGeojson();
-    // const laneMarkings = network.toLaneMarkingsGeojson();
+    sendProtobuf(ctx,buf);
 
-    // console.log(JSON.stringify(geometry, null,2));
-    // console.log("OSM network is above.");
-    ctx.status = 200;
-    ctx.body = geometry;
     if (cache[zoom] == undefined) {
       cache[zoom] = {};
     }
     if (cache[zoom][x] === undefined) {
       cache[zoom][x] = {};
     }
-    cache[zoom][x][y] = geometry;
+    cache[zoom][x][y] = buf;
   }
 }
