@@ -39,9 +39,9 @@ const cache: any = {}
 
 
 function sendProtobuf(ctx: RouterContext, protobuf: any): void {
-      ctx.status = 200;
-      ctx.body = protobuf;
-      ctx.set('Content-Type', 'application/octet-stream');
+  ctx.status = 200;
+  ctx.body = protobuf;
+  ctx.set('Content-Type', 'application/octet-stream');
 }
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
@@ -91,14 +91,18 @@ export default class UserController {
       osm2lanes: false,
     });
     console.log("Generating geojson (currently you need to choose which features in code)...");
-    // const geometry = network.toGeojsonPlain();
+    const geometry = network.toGeojsonPlain();
     const lanePolygons = network.toLanePolygonsGeojson();
-    // const laneMarkings = network.toLaneMarkingsGeojson();
+    const laneMarkings = network.toLaneMarkingsGeojson();
 
-    const geojson = lanePolygons;
+    // TODO: This needs improving, I don't know much about GeoJSON but it works!
+    const geojson: any = {
+      type: "FeatureCollection",
+      features: [ ...JSON.parse(lanePolygons).features, ...JSON.parse(geometry).features, ...JSON.parse(laneMarkings).features ]
+    };
 
     console.log("Generating tileindex...");
-    const tileIndex = geojsonvt(JSON.parse(geojson), {
+    const tileIndex = geojsonvt(geojson, {
       maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
       tolerance: 3, // simplification tolerance (higher means simpler)
       extent: 4096, // tile extent (both width and height)
@@ -129,7 +133,7 @@ export default class UserController {
     const rawArray = vtpbf.fromGeojsonVt({ 'geojsonLayer': tile });
     const buf = Buffer.from(rawArray);
 
-    sendProtobuf(ctx,buf);
+    sendProtobuf(ctx, buf);
 
     // TODO: Clean up and implement a proper cache.
     if (cache[zoom] == undefined) {
