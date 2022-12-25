@@ -7,8 +7,7 @@ This is a Typescript Koa webserver that takes vector tile requests
 (eg `GET http://localhost:3000/tile/16/60293/39332`) and returns GeoJSON corresponding to the
 `osm2streets` output for that tile.
 
-It builds and then utilisis the NodeJS bindings for a wasm build of osm2streets, which itself is
-written in Rust.
+It uses the [NodeJS bindings](https://www.npmjs.com/package/osm2streets-js-node) for a wasm build of [osm2streets](https://github.com/a-b-street/osm2streets), which itself is written in Rust.
 
 
 # Running it
@@ -20,23 +19,12 @@ at a time for debugging.
 See https://hub.docker.com/r/wiktorn/overpass-api for instructions. It's one Docker run command!
 Make sure to choose your region to not download a map of the entire planet :)
 
-## osm2streets
-### Requirements
-- latest stable Rust
-- [wasm-pack](https://github.com/rustwasm/wasm-pack)
-  (`curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh`)
-
-### Clone osm2streets
-- Clone osm2streets adjacent to this repo
-`cd .. && git clone https://github.com/a-b-street/osm2streets`
-
 # Running osm2streets vector tileserver
 See package.json scripts.
 
 ```
 nvm use
 npm i
-npm run build:osm2streets
 npm run build
 npm run start
 ```
