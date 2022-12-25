@@ -50,6 +50,7 @@ export default class UserController {
     const x = parseInt(ctx.params.x);
     const y = parseInt(ctx.params.y);
 
+    // TODO: Clean up and implement a proper cache.
     if (cache[zoom] && cache[zoom][x] && cache[zoom][x][y]) {
       sendProtobuf(ctx, cache[zoom][x][y]);
       return;
@@ -89,14 +90,15 @@ export default class UserController {
       // Enable osm2lanes experiment
       osm2lanes: false,
     });
-    console.log("Generating geojson...");
-    const geometry = JSON.parse(network.toGeojsonPlain());
-    // const lanePolygons = network.toLanePolygonsGeojson();
+    console.log("Generating geojson (currently you need to choose which features in code)...");
+    // const geometry = network.toGeojsonPlain();
+    const lanePolygons = network.toLanePolygonsGeojson();
     // const laneMarkings = network.toLaneMarkingsGeojson();
 
+    const geojson = lanePolygons;
 
     console.log("Generating tileindex...");
-    const tileIndex = geojsonvt(geometry, {
+    const tileIndex = geojsonvt(JSON.parse(geojson), {
       maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
       tolerance: 3, // simplification tolerance (higher means simpler)
       extent: 4096, // tile extent (both width and height)
@@ -127,10 +129,9 @@ export default class UserController {
     const rawArray = vtpbf.fromGeojsonVt({ 'geojsonLayer': tile });
     const buf = Buffer.from(rawArray);
 
-    console.log(buf)
-
     sendProtobuf(ctx,buf);
 
+    // TODO: Clean up and implement a proper cache.
     if (cache[zoom] == undefined) {
       cache[zoom] = {};
     }
