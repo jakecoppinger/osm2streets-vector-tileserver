@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@koa/cors": "^4.0.0",
+    "geojson-vt": "^3.2.1",
     "koa": "^2.14.1",
     "koa-bodyparser": "^4.3.0",
     "koa-helmet": "^6.1.0",
@@ -20,6 +21,7 @@
     "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
+    "@types/geojson-vt": "^3.2.0",
     "@types/koa": "^2.13.5",
     "@types/koa__cors": "^3.3.0",
     "@types/koa-bodyparser": "^4.3.10",

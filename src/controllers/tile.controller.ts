@@ -1,6 +1,6 @@
 import { RouterContext } from 'koa-router';
-
 import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
+import geojsonvt from 'geojson-vt';
 
 // from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
 function tile2long(x: number, z: number): number {
@@ -82,15 +82,37 @@ export default class UserController {
       osm2lanes: false,
     });
     console.log("Generating geojson...");
-    const geometry = network.toGeojsonPlain();
+    const geometry = JSON.parse(network.toGeojsonPlain());
 
-    if(cache[zoom] == undefined) {
-      cache[zoom] = {};
+    const tileIndex = geojsonvt(geometry, {
+      maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
+      tolerance: 3, // simplification tolerance (higher means simpler)
+      extent: 4096, // tile extent (both width and height)
+      buffer: 64,   // tile buffer on each side
+      debug: 0,     // logging level (0 to disable, 1 or 2)
+      lineMetrics: false, // whether to enable line metrics tracking for LineString/MultiLineString features
+      promoteId: null,    // name of a feature property to promote to feature.id. Cannot be used with `generateId`
+      generateId: false,  // whether to generate feature ids. Cannot be used with `promoteId`
+      indexMaxZoom: 5,       // max zoom in the initial tile index
+      indexMaxPoints: 100000 // max number of points per tile in the index
+    });
+    if (tileIndex === null) {
+      ctx.status = 500;
+      ctx.body = "Error: unable to generate vector tile from geojson";
+      return;
     }
-    if(cache[zoom][x] === undefined) {
-      cache[zoom][x] = {};
+
+    // request a particular tile
+    const tile = tileIndex.getTile(zoom, x, y);
+    if (tile === null) {
+      ctx.status = 500;
+      ctx.body = "Error: Coudn't get tile from geojsonvt";
+      return;
     }
-    cache[zoom][x][y] = geometry;
+    console.log(JSON.stringify(tile, null,2))
+
+
+
     // const lanePolygons = network.toLanePolygonsGeojson();
     // const laneMarkings = network.toLaneMarkingsGeojson();
 
@@ -98,5 +120,12 @@ export default class UserController {
     // console.log("OSM network is above.");
     ctx.status = 200;
     ctx.body = geometry;
+    if (cache[zoom] == undefined) {
+      cache[zoom] = {};
+    }
+    if (cache[zoom][x] === undefined) {
+      cache[zoom][x] = {};
+    }
+    cache[zoom][x][y] = geometry;
   }
 }
