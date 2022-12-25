@@ -1,13 +1,16 @@
 osm2streets vector tileserver
 =============================
 
-_This is a work in progress! Not yet integration tested with a frontend!_
+_This is a work in progress! Loads in QGIS, not yet integration tested with a frontend!_
+
+![Screenshot of QGIS showing tileserver](img/qgis-demo.jpg)
 
 This is a Typescript Koa webserver that takes vector tile requests
 (eg `GET http://localhost:3000/tile/16/60293/39332`) and returns GeoJSON corresponding to the
 `osm2streets` output for that tile.
 
-It uses the [NodeJS bindings](https://www.npmjs.com/package/osm2streets-js-node) for a wasm build of [osm2streets](https://github.com/a-b-street/osm2streets), which itself is written in Rust.
+It uses the [NodeJS bindings](https://www.npmjs.com/package/osm2streets-js-node) for a wasm
+build of [osm2streets](https://github.com/a-b-street/osm2streets), which itself is written in Rust.
 
 
 # Running it
@@ -29,10 +32,46 @@ npm run build
 npm run start
 ```
 
+# Opening in QGIS
+- Run the server as above
+- Install the "Vector Tiles Reader" plugin
+- Add a tileserver URL: `http://localhost:3000/tile/{z}/{x}/{y}`
+- Browse away!
+
+You should see requests hit your command line.
+
+# Architecture / how it works
+- takes tileserver requests (eg. http://localhost:3000/tile/16/60293/39332)
+- Finds the bounding box of that tile
+- Downloads the OSM XML from a local overpass turbo instance for that bounding box
+- Calls osm2streets via the NodeJS bindings
+- Generates the geojson for all features and combines them
+- Caches the output for a given tile zoom/x/y in a JS variable (needs improvement)
+
+
+# Future improvments / PRs you could write :)
+- Add guide for how to add vector layor in Mapbox GL JS or another JS frontend
+- Fix styles/why are there no colours?
+- Improve caching design. There's so much that can be done on this!
+  - Every time GeoJSON is generated for a given tile, the GeoJSON is "exact" - so tiles could be
+    generated and cached many layers down.
+- Clarify the state of overlap between tiles (ie. do we need to apply any lessons from
+  https://blog.cyclemap.link/2020-01-25-tilebuffer/ ?
+  - I think the Overpass API returns the entire way if a single part of it is in the bounding box,
+    so I assume tons of overlap is "built in".
+
+Create an issue or work in progress PR if you start working on something to prevent duplicated
+effort.
+
 # Resources
 
+Clipping on vector tiles:
 https://blog.cyclemap.link/2020-01-25-tilebuffer/
+
+Mapbox docs on vector tiles:
 https://docs.mapbox.com/api/maps/vector-tiles/
+
+Discussion on osm2streets about creating a tileserver:
 https://github.com/a-b-street/osm2streets/issues/12
 
 # License
