@@ -70,6 +70,7 @@ export default class UserController {
     } catch (e) {
       ctx.status = 503;
       ctx.body = JSON.stringify(e, null, 2);
+      console.error("ERROR: Failed to make request to overpass. Is the Docker container running?");
       return;
     }
     if (osmXML === undefined) {
