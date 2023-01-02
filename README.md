@@ -35,6 +35,7 @@ npm run start
 # Opening in QGIS
 - Run the server as above
 - Install the "Vector Tiles Reader" plugin
+- Click Vector menu -> Vector Tiles Reader -> Add Vector Tiles Layer
 - Add a tileserver URL: `http://localhost:3000/tile/{z}/{x}/{y}`
 - Browse away!
 
