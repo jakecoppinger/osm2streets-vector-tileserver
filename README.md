@@ -49,6 +49,36 @@ You should see requests hit your command line.
 - Generates the geojson for all features and combines them
 - Caches the output for a given tile zoom/x/y in a JS variable (needs improvement)
 
+# Adding this as a vector tile layer in Mapbox GL JS
+
+Something like this! Work in progress - no styling or separate layers yet.
+
+`"source-layer": "geojsonLayer",` is the crical line - currently `geojsonLayer` is hardcoded in
+this repo.
+
+```
+map.on("load", function () {
+  // See example at
+  // https://docs.mapbox.com/mapbox-gl-js/example/multiple-geometries/
+  map.addSource("osm2streets-vector-tileserver", {
+    type: "vector",
+    tiles: ["http://localhost:3000/tile/{z}/{x}/{y}"],
+    minzoom: 6, // needs improving
+    maxzoom: 22, // needs improving
+  });
+  map.addLayer({
+    id: "osm2streets",
+    type: "fill",
+    source: "osm2streets-vector-tileserver",
+    "source-layer": "geojsonLayer",
+    paint: {
+      "fill-color": "red",
+      "fill-opacity": 0.4,
+    },
+    filter: ["==", "$type", "Polygon"],
+  });
+});
+```
 
 # Future improvments / PRs you could write :)
 - Add guide for how to add vector layor in Mapbox GL JS or another JS frontend
