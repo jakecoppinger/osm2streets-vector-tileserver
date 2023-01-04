@@ -44,7 +44,9 @@ function sendProtobuf(ctx: RouterContext, protobuf: any): void {
   ctx.set('Content-Type', 'application/octet-stream');
 }
 
-function isParamANumber({ param, paramName, ctx }: { param: string, paramName: string, ctx: RouterContext }): boolean {
+/** Returns true if a given param string is a valid number.
+ * If not, set Koa status & error before returning false */
+function validateNumberParam({ param, paramName, ctx }: { param: string, paramName: string, ctx: RouterContext }): boolean {
   const possibleNumber = parseInt(param);
   if (isNaN(possibleNumber)) {
     ctx.status = 500;
@@ -55,15 +57,39 @@ function isParamANumber({ param, paramName, ctx }: { param: string, paramName: s
   }
   return true;
 }
+
+async function fetchOverpassXMLAndValidate({ zoom, x, y, ctx }: { zoom: number, x: number, y: number, ctx: RouterContext }) {
+  const url = generateOverpassTurboQueryUrl({ zoom, x, y });
+  // HIT http://localhost:3000/tile/16/60293/39332 TO TEST :)
+  try {
+    console.log("Fetching XML from overpass...");
+    const resp = await fetch(url);
+    const osmXML = await resp.text();
+    console.log("Got OSM input.");
+    if (osmXML === undefined) {
+      ctx.status = 503;
+      ctx.body = "Error: OSM XML is undefined";
+      return null;
+    }
+    return osmXML;
+
+  } catch (e) {
+    ctx.status = 503;
+    ctx.body = JSON.stringify(e, null, 2);
+    console.error("ERROR: Failed to make request to overpass. Is the Docker container running?");
+    return null;
+  }
+}
+
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
     // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
 
     // If any validation returns a false and returns error, return.
     if (
-      !isParamANumber({ param: ctx.params.zoom, paramName: 'z', ctx }) ||
-      !isParamANumber({ param: ctx.params.x, paramName: 'x', ctx }) ||
-      !isParamANumber({ param: ctx.params.y, paramName: 'y', ctx })
+      !validateNumberParam({ param: ctx.params.zoom, paramName: 'z', ctx }) ||
+      !validateNumberParam({ param: ctx.params.x, paramName: 'x', ctx }) ||
+      !validateNumberParam({ param: ctx.params.y, paramName: 'y', ctx })
     ) {
       return;
     }
@@ -77,26 +103,8 @@ export default class UserController {
       return;
     }
 
-    const url = generateOverpassTurboQueryUrl({ zoom, x, y });
-    // HIT http://localhost:3000/tile/16/60293/39332 TO TEST :)
-
-
-    var osmXML;
-    try {
-      console.log("Fetching XML from overpass...");
-      const resp = await fetch(url);
-      osmXML = await resp.text();
-      console.log("Got OSM input.");
-
-    } catch (e) {
-      ctx.status = 503;
-      ctx.body = JSON.stringify(e, null, 2);
-      console.error("ERROR: Failed to make request to overpass. Is the Docker container running?");
-      return;
-    }
-    if (osmXML === undefined) {
-      ctx.status = 503;
-      ctx.body = "Error: OSM XML is undefined";
+    const osmXML = await fetchOverpassXMLAndValidate({ zoom, x, y, ctx });
+    if (osmXML === null) {
       return;
     }
 
@@ -120,7 +128,7 @@ export default class UserController {
     // TODO: This needs improving, I don't know much about GeoJSON but it works!
     const geojson: any = {
       type: "FeatureCollection",
-      features: [ ...JSON.parse(lanePolygons).features, ...JSON.parse(geometry).features, ...JSON.parse(laneMarkings).features ]
+      features: [...JSON.parse(lanePolygons).features, ...JSON.parse(geometry).features, ...JSON.parse(laneMarkings).features]
     };
 
     console.log("Generating tileindex...");
