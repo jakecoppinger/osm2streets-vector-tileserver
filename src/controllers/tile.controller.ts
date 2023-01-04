@@ -43,12 +43,33 @@ function sendProtobuf(ctx: RouterContext, protobuf: any): void {
   ctx.body = protobuf;
   ctx.set('Content-Type', 'application/octet-stream');
 }
+
+function isParamANumber({ param, paramName, ctx }: { param: string, paramName: string, ctx: RouterContext }): boolean {
+  const possibleNumber = parseInt(param);
+  if (isNaN(possibleNumber)) {
+    ctx.status = 500;
+    const error = `Error: {${paramName}} param isn't a number, it is: ${param} (maybe a string?)`;
+    ctx.body = error;
+    console.error(error);
+    return false
+  }
+  return true;
+}
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
     // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
-    const zoom = parseInt(ctx.params.zoom);
-    const x = parseInt(ctx.params.x);
-    const y = parseInt(ctx.params.y);
+
+    // If any validation returns a false and returns error, return.
+    if (
+      !isParamANumber({ param: ctx.params.zoom, paramName: 'z', ctx }) ||
+      !isParamANumber({ param: ctx.params.x, paramName: 'x', ctx }) ||
+      !isParamANumber({ param: ctx.params.y, paramName: 'y', ctx })
+    ) {
+      return;
+    }
+    const zoom = parseInt(ctx.params.zoom, 10);
+    const x = parseInt(ctx.params.x, 10);
+    const y = parseInt(ctx.params.y, 10);
 
     // TODO: Clean up and implement a proper cache.
     if (cache[zoom] && cache[zoom][x] && cache[zoom][x][y]) {
