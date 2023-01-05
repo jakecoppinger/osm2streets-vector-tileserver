@@ -3,8 +3,9 @@ osm2streets vector tileserver
 
 _This is a work in progress! Loads in QGIS & Mapbox GL JS!_
 
+![Screenshot of Mapbox map on light background](img/safe-cycling-map-2022-01-05-v2.jpg)
+![Screenshot of Mapbox map on dark background](img/safe-cycling-map-2022-01-05.jpg)
 ![Screenshot of QGIS showing tileserver](img/qgis-demo.jpg)
-![Screenshot of map](img/safe-cycling-map-2022-01-05.jpg)
 
 This is a Typescript Koa webserver that takes vector tile requests
 (eg `GET http://localhost:3000/tile/16/60293/39332`) and returns GeoJSON corresponding to the
