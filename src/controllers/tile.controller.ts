@@ -132,17 +132,23 @@ export default class UserController {
 
     console.log("Generating road network...");
     const boundaryGeojson = "";
+
+
     const network = new JsStreetNetwork(osmXML, boundaryGeojson, {
-      // Play with options in the sidebar at https://a-b-street.github.io/osm2streets/ :)
-      debug_each_step: false,
+      // Play with options in the sidebar at https://a-b-street.github.io/osm2streets/
+      debug_each_step: true,
       dual_carriageway_experiment: false,
       cycletrack_snapping_experiment:
         false,
-      inferred_sidewalks: false,
-      // Enable osm2lanes experiment
+      // If true, roads without explicitly tagged sidewalks may be assigned sidewalks or shoulders.
+      // If false, no inference will occur and separate sidewalks and crossings will be included.
+      inferred_sidewalks: true,
+
+      /* If true, use experimental osm2lanes for figuring out lanes per road. If false, use the
+      classic algorithm. */
       osm2lanes: false,
     });
-    console.log("Generating geojson (currently you need to choose which features in code)...");
+    console.log("Generating geojson...");
     const geometryFeatures = network.toGeojsonPlain();
     const lanePolygonFeatures = network.toLanePolygonsGeojson();
     const laneMarkingFeatures = network.toLaneMarkingsGeojson();
