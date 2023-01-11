@@ -1,107 +1,11 @@
 import Router, { RouterContext } from 'koa-router';
 import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
-import geojsonvt from 'geojson-vt';
 // Can't find types for vt-pbf
 // @ts-ignore
 import vtpbf from 'vt-pbf';
-
-// from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
-function tile2long(x: number, z: number): number {
-  return (x / Math.pow(2, z) * 360.0 - 180.0);
-}
-function tile2lat(y: number, z: number): number {
-  const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
-  return (180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))));
-}
-
-function generateOverpassTurboQueryUrl({ zoom, x, y }: { zoom: number, x: number, y: number }): string {
-  // https://gis.stackexchange.com/questions/17278/calculate-lat-lon-bounds-for-individual-tile-generated-from-gdal2tiles
-  // latitude is horizontal lines and specifies how north/south something is
-  // longitude is vertical lines and specifies how east/west something is
-  const NW_long = tile2long(x, zoom);
-  const SW_long = tile2long(x, zoom);
-  const SW_lat = tile2lat(y + 1, zoom); // nad
-  const NE_long = tile2long(x + 1, zoom); // bad 
-  const NE_lat = tile2lat(y, zoom);
-
-
-  // southern-most latitude, western-most longitude, northern-most latitude, eastern-most longitude.
-  const bbox = `${SW_lat},${SW_long},${NE_lat},${NE_long}`;
-  const query = `(nwr(${bbox}); node(w)->.x; <;); out meta;`;
-  const url = `http://localhost:12345/api/interpreter?data=${query}`;
-
-  // Don't hit this API too hard please!
-  // const url = `https://overpass-api.de/api/interpreter?data=${query}`;
-  return url;
-}
+import { fetchOverpassXMLAndValidate, generateTileIndex, sendProtobuf, validateNumberParam } from '../router-utils.js';
 
 const cache: any = {}
-
-
-function sendProtobuf(ctx: RouterContext, protobuf: any): void {
-  ctx.status = 200;
-  ctx.body = protobuf;
-  ctx.set('Content-Type', 'application/octet-stream');
-}
-
-/** Returns true if a given param string is a valid number.
- * If not, set Koa status & error before returning false */
-function validateNumberParam({ param, paramName, ctx }: { param: string, paramName: string, ctx: RouterContext }): boolean {
-  const possibleNumber = parseInt(param);
-  if (isNaN(possibleNumber)) {
-    ctx.status = 500;
-    const error = `Error: {${paramName}} param isn't a number, it is: ${param} (maybe a string?)`;
-    ctx.body = error;
-    console.error(error);
-    return false
-  }
-  return true;
-}
-
-async function fetchOverpassXMLAndValidate({ zoom, x, y, ctx }:
-  { zoom: number, x: number, y: number, ctx: RouterContext }): Promise<string | null> {
-  const url = generateOverpassTurboQueryUrl({ zoom, x, y });
-  // HIT http://localhost:3000/tile/16/60293/39332 TO TEST :)
-  try {
-    console.log("Fetching XML from overpass...");
-    const resp = await fetch(url);
-    const osmXML = await resp.text();
-    console.log("Got OSM input.");
-    if (osmXML === undefined) {
-      ctx.status = 503;
-      ctx.body = "Error: OSM XML is undefined";
-      return null;
-    }
-    return osmXML;
-
-  } catch (e) {
-    ctx.status = 503;
-    ctx.body = JSON.stringify(e, null, 2);
-    console.error("ERROR: Failed to make request to overpass. Is the Docker container running?");
-    return null;
-  }
-}
-
-function generateTileIndex(geojson: any, ctx: RouterContext) {
-  const tileIndex = geojsonvt(geojson, {
-    maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
-    tolerance: 3, // simplification tolerance (higher means simpler)
-    extent: 4096, // tile extent (both width and height)
-    buffer: 64,   // tile buffer on each side
-    debug: 0,     // logging level (0 to disable, 1 or 2)
-    lineMetrics: false, // whether to enable line metrics tracking for LineString/MultiLineString features
-    promoteId: null,    // name of a feature property to promote to feature.id. Cannot be used with `generateId`
-    generateId: false,  // whether to generate feature ids. Cannot be used with `promoteId`
-    indexMaxZoom: 5,       // max zoom in the initial tile index
-    indexMaxPoints: 100000 // max number of points per tile in the index
-  });
-  if (tileIndex === null) {
-    ctx.status = 500;
-    ctx.body = "Error: unable to generate vector tile from geojson";
-    return null;
-  }
-  return tileIndex
-}
 
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
