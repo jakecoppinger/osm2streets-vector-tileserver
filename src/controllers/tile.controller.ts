@@ -65,6 +65,7 @@ async function fetchTile(ctx: RouterContext) {
     sendProtobuf(ctx, maybeCacheHit);
     return;
   }
+  console.log("Generating street network...");
   const network = await createStreetNetwork({ zoom, x, y });
 
   console.log("Generating geojson for each feature...");
@@ -72,25 +73,13 @@ async function fetchTile(ctx: RouterContext) {
   const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
 
   console.log("Generating tileindex...");
+  const tileIndexes = geoJSONs.map(generateTileIndex);
 
-  const geometryTileIndex = await generateTileIndex(geoJSONs[0], ctx);
-  const lanePolygonTileIndex = await generateTileIndex(geoJSONs[1], ctx);
-  const laneMarkingTileIndex = await generateTileIndex(geoJSONs[2], ctx);
-  const intersectionMarkingTileIndex = await generateTileIndex(geoJSONs[3], ctx);
+  console.log("Generating tile for each layer...");
+  const tiles = tileIndexes.map(tileIndex => tileIndex.getTile(zoom, x, y));
 
-  if (geometryTileIndex === null || lanePolygonTileIndex === null ||
-    laneMarkingTileIndex === null || intersectionMarkingTileIndex === null) {
-    return;
-  }
-
-  console.log("Generating tile...");
-  const geometryTile = geometryTileIndex.getTile(zoom, x, y);
-  const lanePolygonTile = lanePolygonTileIndex.getTile(zoom, x, y);
-  const laneMarkingTile = laneMarkingTileIndex.getTile(zoom, x, y);
-  const intersectionMarkingTile = intersectionMarkingTileIndex.getTile(zoom, x, y);
-
-  if (geometryTile === null || lanePolygonTile === null || laneMarkingTile === null ||
-    intersectionMarkingTile === null) {
+  const missingTile = tiles.findIndex(tile => tile === null) !== -1;
+  if (missingTile) {
     ctx.status = 500;
     ctx.body = "Error: Coudn't get one of the tiles from geojsonvt";
     return;
@@ -99,15 +88,15 @@ async function fetchTile(ctx: RouterContext) {
   // This is a Uint8Array
   const rawArray = vtpbf.fromGeojsonVt(
     {
-      geometry: geometryTile,
-      lanePolygons: lanePolygonTile,
-      laneMarkings: laneMarkingTile,
-      intersectionMarkings: intersectionMarkingTile
+      // See order in `featuresToQuery`
+      geometry: tiles[0],
+      lanePolygons: tiles[1],
+      laneMarkings: tiles[2],
+      intersectionMarkings: tiles[3]
     });
   const buf = Buffer.from(rawArray);
 
   sendProtobuf(ctx, buf);
-
   cache.setCache({ zoom, x, y }, buf);
 }
 

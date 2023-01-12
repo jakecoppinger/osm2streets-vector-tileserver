@@ -46,7 +46,7 @@ export function validateNumberParam({ param, paramName, ctx }: { param: string, 
   return true;
 }
 
-export function generateTileIndex(geojson: any, ctx: RouterContext): GeoJSONVT | null {
+export function generateTileIndex(geojson: any): GeoJSONVT {
   const tileIndex = geojsonvt(geojson, {
     maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
     tolerance: 3, // simplification tolerance (higher means simpler)
@@ -60,9 +60,7 @@ export function generateTileIndex(geojson: any, ctx: RouterContext): GeoJSONVT |
     indexMaxPoints: 100000 // max number of points per tile in the index
   });
   if (tileIndex === null) {
-    ctx.status = 500;
-    ctx.body = "Error: unable to generate vector tile from geojson";
-    return null;
+    throw Error("Error: unable to generate vector tile from geojson");
   }
   return tileIndex
 }
