@@ -4,7 +4,7 @@ import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
 // @ts-ignore
 import vtpbf from 'vt-pbf';
 import { BasicCache } from '../cache.js';
-import { createStreetNetwork } from '../geospatial-utils.js';
+import { createStreetNetwork, networkToVectorTileBuffer } from '../geospatial-utils.js';
 import { GeoJSONVT, TileCoordinate } from '../interfaces.js';
 import { fetchOverpassXML, generateTileIndex, sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateXYForZoom } from '../utils.js';
@@ -15,59 +15,6 @@ const cache = new BasicCache<Buffer>();
 // const tileIndexZoom = 16;
 // /** Only has values for zoom `tileIndexZoom` */
 // const tileIndexCache = new BasicCache<GeoJSONVT>();
-
-type AllFeatureTypes = 'geometry' | 'lanePolygons' | 'laneMarkings' | 'intersectionMarkings';
-
-function networkToGeoJSON(requestedFeatures: AllFeatureTypes, streetNetwork: JsStreetNetwork): Object {
-  let features: string;
-  if (requestedFeatures === 'geometry') {
-    features = streetNetwork.toGeojsonPlain();
-  } else if (requestedFeatures === 'lanePolygons') {
-    features = streetNetwork.toLanePolygonsGeojson();
-  } else if (requestedFeatures === 'laneMarkings') {
-    features = streetNetwork.toLaneMarkingsGeojson();
-  } else if (requestedFeatures === 'intersectionMarkings') {
-    features = streetNetwork.toIntersectionMarkingsGeojson();
-  } else {
-    throw ("input requestedFeatures to networkToTileIndex is wrong");
-  }
-
-  const geoJSON: Object = {
-    type: "FeatureCollection",
-    features: [...JSON.parse(features).features]
-  };
-  return geoJSON;
-}
-
-function networkToVectorTileBuffer(network: JsStreetNetwork, { zoom, x, y }: TileCoordinate): Buffer {
-  console.log("Generating geojson for each feature...");
-  const featuresToQuery: AllFeatureTypes[] = ['geometry', 'lanePolygons', 'laneMarkings', 'intersectionMarkings']
-  const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
-
-  console.log("Generating tileindex...");
-  const tileIndexes = geoJSONs.map(generateTileIndex);
-
-  console.log("Generating tile for each layer...");
-  const tiles = tileIndexes.map(tileIndex => tileIndex.getTile(zoom, x, y));
-
-  const missingTile = tiles.findIndex(tile => tile === null) !== -1;
-  if (missingTile) {
-    throw Error("Error: Coudn't get one of the tiles from geojsonvt");
-  }
-
-  // This is a Uint8Array
-  const rawArray = vtpbf.fromGeojsonVt(
-    {
-      // See order in `featuresToQuery`
-      geometry: tiles[0],
-      lanePolygons: tiles[1],
-      laneMarkings: tiles[2],
-      intersectionMarkings: tiles[3]
-    });
-  const buf = Buffer.from(rawArray);
-  return buf;
-}
-
 
 async function fetchTile(ctx: RouterContext) {
   // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}

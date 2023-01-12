@@ -7,3 +7,5 @@ export interface TileCoordinate {
 
 /** Not yet exported from the types */
 export type GeoJSONVT = ReturnType<typeof geojsonvt>
+
+export type AllFeatureTypes = 'geometry' | 'lanePolygons' | 'laneMarkings' | 'intersectionMarkings';

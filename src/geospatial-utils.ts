@@ -1,6 +1,9 @@
 import { JsStreetNetwork } from "osm2streets-js-node";
-import { TileCoordinate } from "./interfaces.js";
-import { fetchOverpassXML } from "./router-utils.js";
+import { AllFeatureTypes, TileCoordinate } from "./interfaces.js";
+import { fetchOverpassXML, generateTileIndex } from "./router-utils.js";
+// Can't find types for vt-pbf
+// @ts-ignore
+import vtpbf from 'vt-pbf';
 
 /**
  * Fetch XML from overpass turbo and create the JS street network object[
@@ -27,4 +30,54 @@ export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promi
     osm2lanes: false,
   });
   return network;
+}
+
+export function networkToGeoJSON(requestedFeatures: AllFeatureTypes, streetNetwork: JsStreetNetwork): Object {
+  let features: string;
+  if (requestedFeatures === 'geometry') {
+    features = streetNetwork.toGeojsonPlain();
+  } else if (requestedFeatures === 'lanePolygons') {
+    features = streetNetwork.toLanePolygonsGeojson();
+  } else if (requestedFeatures === 'laneMarkings') {
+    features = streetNetwork.toLaneMarkingsGeojson();
+  } else if (requestedFeatures === 'intersectionMarkings') {
+    features = streetNetwork.toIntersectionMarkingsGeojson();
+  } else {
+    throw ("input requestedFeatures to networkToTileIndex is wrong");
+  }
+
+  const geoJSON: Object = {
+    type: "FeatureCollection",
+    features: [...JSON.parse(features).features]
+  };
+  return geoJSON;
+}
+
+export function networkToVectorTileBuffer(network: JsStreetNetwork, { zoom, x, y }: TileCoordinate): Buffer {
+  console.log("Generating geojson for each feature...");
+  const featuresToQuery: AllFeatureTypes[] = ['geometry', 'lanePolygons', 'laneMarkings', 'intersectionMarkings']
+  const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
+
+  console.log("Generating tileindex...");
+  const tileIndexes = geoJSONs.map(generateTileIndex);
+
+  console.log("Generating tile for each layer...");
+  const tiles = tileIndexes.map(tileIndex => tileIndex.getTile(zoom, x, y));
+
+  const missingTile = tiles.findIndex(tile => tile === null) !== -1;
+  if (missingTile) {
+    throw Error("Error: Coudn't get one of the tiles from geojsonvt");
+  }
+
+  // This is a Uint8Array
+  const rawArray = vtpbf.fromGeojsonVt(
+    {
+      // See order in `featuresToQuery`
+      geometry: tiles[0],
+      lanePolygons: tiles[1],
+      laneMarkings: tiles[2],
+      intersectionMarkings: tiles[3]
+    });
+  const buf = Buffer.from(rawArray);
+  return buf;
 }
