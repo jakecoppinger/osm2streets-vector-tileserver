@@ -1,9 +1,11 @@
 import { RouterContext } from "koa-router";
 import geojsonvt from 'geojson-vt';
+
 import { generateOverpassTurboQueryUrl } from "./utils.js";
 // Can't find types for vt-pbf
 // @ts-ignore
 import vtpbf from 'vt-pbf';
+import { GeoJSONVT } from "./interfaces.js";
 
 export function sendProtobuf(ctx: RouterContext, protobuf: any): void {
   ctx.status = 200;
@@ -11,8 +13,8 @@ export function sendProtobuf(ctx: RouterContext, protobuf: any): void {
   ctx.set('Content-Type', 'application/octet-stream');
 }
 
-export async function fetchOverpassXMLAndValidate({ zoom, x, y, ctx }:
-  { zoom: number, x: number, y: number, ctx: RouterContext }): Promise<string | null> {
+export async function fetchOverpassXML({ zoom, x, y }:
+  { zoom: number, x: number, y: number }): Promise<string> {
   const url = generateOverpassTurboQueryUrl({ zoom, x, y });
   // HIT http://localhost:3000/tile/16/60293/39332 TO TEST :)
   try {
@@ -21,17 +23,12 @@ export async function fetchOverpassXMLAndValidate({ zoom, x, y, ctx }:
     const osmXML = await resp.text();
     console.log("Got OSM input.");
     if (osmXML === undefined) {
-      ctx.status = 503;
-      ctx.body = "Error: OSM XML is undefined";
-      return null;
+      throw Error("Error: OSM XML is undefined")
     }
     return osmXML;
 
   } catch (e) {
-    ctx.status = 503;
-    ctx.body = JSON.stringify(e, null, 2);
-    console.error("ERROR: Failed to make request to overpass. Is the Docker container running?");
-    return null;
+    throw Error("ERROR: Failed to make request to overpass. Is the Docker container running?");
   }
 }
 
@@ -49,7 +46,7 @@ export function validateNumberParam({ param, paramName, ctx }: { param: string, 
   return true;
 }
 
-export function generateTileIndex(geojson: any, ctx: RouterContext): vtpbf.GeoJSONVT | null {
+export function generateTileIndex(geojson: any, ctx: RouterContext): GeoJSONVT | null {
   const tileIndex = geojsonvt(geojson, {
     maxZoom: 24,  // max zoom to preserve detail on; can't be higher than 24
     tolerance: 3, // simplification tolerance (higher means simpler)

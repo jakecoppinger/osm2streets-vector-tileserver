@@ -1,3 +1,5 @@
+import { TileCoordinate } from "./interfaces";
+
 // from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
 export function tile2long(x: number, z: number): number {
   return (x / Math.pow(2, z) * 360.0 - 180.0);
@@ -29,7 +31,7 @@ export function generateOverpassTurboQueryUrl({ zoom, x, y }: { zoom: number, x:
 }
 
 
-export function calculateXYForZoom({ zoom, x, y, targetZoom }: { zoom: number, x: number, y: number, targetZoom: number }): { x: number, y: number } | null {
+export function calculateXYForZoom({zoom, x, y}: TileCoordinate, targetZoom: number): { x: number, y: number } | null {
   if (targetZoom === zoom) {
     return { x, y };
   }
