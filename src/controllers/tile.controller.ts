@@ -39,6 +39,36 @@ function networkToGeoJSON(requestedFeatures: AllFeatureTypes, streetNetwork: JsS
   return geoJSON;
 }
 
+function networkToVectorTileBuffer(network: JsStreetNetwork, { zoom, x, y }: TileCoordinate): Buffer {
+  console.log("Generating geojson for each feature...");
+  const featuresToQuery: AllFeatureTypes[] = ['geometry', 'lanePolygons', 'laneMarkings', 'intersectionMarkings']
+  const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
+
+  console.log("Generating tileindex...");
+  const tileIndexes = geoJSONs.map(generateTileIndex);
+
+  console.log("Generating tile for each layer...");
+  const tiles = tileIndexes.map(tileIndex => tileIndex.getTile(zoom, x, y));
+
+  const missingTile = tiles.findIndex(tile => tile === null) !== -1;
+  if (missingTile) {
+    throw Error("Error: Coudn't get one of the tiles from geojsonvt");
+  }
+
+  // This is a Uint8Array
+  const rawArray = vtpbf.fromGeojsonVt(
+    {
+      // See order in `featuresToQuery`
+      geometry: tiles[0],
+      lanePolygons: tiles[1],
+      laneMarkings: tiles[2],
+      intersectionMarkings: tiles[3]
+    });
+  const buf = Buffer.from(rawArray);
+  return buf;
+}
+
+
 async function fetchTile(ctx: RouterContext) {
   // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
 
@@ -65,37 +95,11 @@ async function fetchTile(ctx: RouterContext) {
     sendProtobuf(ctx, maybeCacheHit);
     return;
   }
+
   console.log("Generating street network...");
   const network = await createStreetNetwork({ zoom, x, y });
 
-  console.log("Generating geojson for each feature...");
-  const featuresToQuery: AllFeatureTypes[] = ['geometry', 'lanePolygons', 'laneMarkings', 'intersectionMarkings']
-  const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
-
-  console.log("Generating tileindex...");
-  const tileIndexes = geoJSONs.map(generateTileIndex);
-
-  console.log("Generating tile for each layer...");
-  const tiles = tileIndexes.map(tileIndex => tileIndex.getTile(zoom, x, y));
-
-  const missingTile = tiles.findIndex(tile => tile === null) !== -1;
-  if (missingTile) {
-    ctx.status = 500;
-    ctx.body = "Error: Coudn't get one of the tiles from geojsonvt";
-    return;
-  }
-
-  // This is a Uint8Array
-  const rawArray = vtpbf.fromGeojsonVt(
-    {
-      // See order in `featuresToQuery`
-      geometry: tiles[0],
-      lanePolygons: tiles[1],
-      laneMarkings: tiles[2],
-      intersectionMarkings: tiles[3]
-    });
-  const buf = Buffer.from(rawArray);
-
+  const buf = networkToVectorTileBuffer(network, { zoom, x, y });
   sendProtobuf(ctx, buf);
   cache.setCache({ zoom, x, y }, buf);
 }
