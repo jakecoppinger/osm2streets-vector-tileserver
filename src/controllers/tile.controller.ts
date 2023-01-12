@@ -3,9 +3,10 @@ import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
 // Can't find types for vt-pbf
 // @ts-ignore
 import vtpbf from 'vt-pbf';
+import { BasicCache } from '../cache.js';
 import { fetchOverpassXMLAndValidate, generateTileIndex, sendProtobuf, validateNumberParam } from '../router-utils.js';
 
-const cache: any = {}
+const cache = new BasicCache<Buffer>();
 
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
@@ -23,9 +24,9 @@ export default class UserController {
     const x = parseInt(ctx.params.x, 10);
     const y = parseInt(ctx.params.y, 10);
 
-    // TODO: Clean up and implement a proper cache.
-    if (cache[zoom] && cache[zoom][x] && cache[zoom][x][y]) {
-      sendProtobuf(ctx, cache[zoom][x][y]);
+    const maybeCacheHit = cache.accessCache({ zoom, x, y });
+    if (maybeCacheHit !== null) {
+      sendProtobuf(ctx, maybeCacheHit);
       return;
     }
 
@@ -118,13 +119,6 @@ export default class UserController {
 
     sendProtobuf(ctx, buf);
 
-    // TODO: Clean up and implement a proper cache.
-    if (cache[zoom] == undefined) {
-      cache[zoom] = {};
-    }
-    if (cache[zoom][x] === undefined) {
-      cache[zoom][x] = {};
-    }
-    cache[zoom][x][y] = buf;
+    cache.setCache({ zoom, x, y }, buf);
   }
 }

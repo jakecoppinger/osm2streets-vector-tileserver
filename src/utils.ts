@@ -27,3 +27,23 @@ export function generateOverpassTurboQueryUrl({ zoom, x, y }: { zoom: number, x:
   // const url = `https://overpass-api.de/api/interpreter?data=${query}`;
   return url;
 }
+
+
+export function calculateXYForZoom({ zoom, x, y, targetZoom }: { zoom: number, x: number, y: number, targetZoom: number }): { x: number, y: number } | null {
+  if (targetZoom === zoom) {
+    return { x, y };
+  }
+  if (targetZoom < zoom) {
+    // We can't zoom out
+    return null;
+  }
+  let zoomIterator: number = zoom;
+  let xIterator: number = x;
+  let yIterator: number = x;
+  while (zoomIterator > targetZoom) {
+    xIterator /= 2;
+    yIterator /= 2;
+    zoomIterator -= 1;
+  }
+  return { x: xIterator, y: yIterator };
+}
