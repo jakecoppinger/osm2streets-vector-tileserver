@@ -4,6 +4,7 @@ import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
 // @ts-ignore
 import vtpbf from 'vt-pbf';
 import { BasicCache } from '../cache.js';
+import { createStreetNetwork } from '../geospatial-utils.js';
 import { GeoJSONVT, TileCoordinate } from '../interfaces.js';
 import { fetchOverpassXML, generateTileIndex, sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateXYForZoom } from '../utils.js';
@@ -16,32 +17,6 @@ const cache = new BasicCache<Buffer>();
 /** Only has values for zoom `tileIndexZoom` */
 // const tileIndexCache = new BasicCache<GeoJSONVT>();
 
-/**
- * Fetch XML from overpass turbo and create the JS street network object[
-*/
-async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promise<JsStreetNetwork> {
-  const osmXML = await fetchOverpassXML({ zoom, x, y });
-
-  console.log("Generating road network...");
-  const boundaryGeojson = "";
-
-
-  const network = new JsStreetNetwork(osmXML, boundaryGeojson, {
-    // Play with options in the sidebar at https://a-b-street.github.io/osm2streets/
-    debug_each_step: true,
-    dual_carriageway_experiment: false,
-    cycletrack_snapping_experiment:
-      false,
-    // If true, roads without explicitly tagged sidewalks may be assigned sidewalks or shoulders.
-    // If false, no inference will occur and separate sidewalks and crossings will be included.
-    inferred_sidewalks: true,
-
-    /* If true, use experimental osm2lanes for figuring out lanes per road. If false, use the
-    classic algorithm. */
-    osm2lanes: false,
-  });
-  return network;
-}
 
 async function fetchTile(ctx: RouterContext) {
   // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
