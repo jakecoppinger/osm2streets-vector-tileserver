@@ -13,10 +13,31 @@ const cache = new BasicCache<Buffer>();
 
 // WIP
 // const tileIndexZoom = 16;
-
-/** Only has values for zoom `tileIndexZoom` */
+// /** Only has values for zoom `tileIndexZoom` */
 // const tileIndexCache = new BasicCache<GeoJSONVT>();
 
+type AllFeatureTypes = 'geometry' | 'lanePolygons' | 'laneMarkings' | 'intersectionMarkings';
+
+function networkToGeoJSON(requestedFeatures: AllFeatureTypes, streetNetwork: JsStreetNetwork): Object {
+  let features: string;
+  if (requestedFeatures === 'geometry') {
+    features = streetNetwork.toGeojsonPlain();
+  } else if (requestedFeatures === 'lanePolygons') {
+    features = streetNetwork.toLanePolygonsGeojson();
+  } else if (requestedFeatures === 'laneMarkings') {
+    features = streetNetwork.toLaneMarkingsGeojson();
+  } else if (requestedFeatures === 'intersectionMarkings') {
+    features = streetNetwork.toIntersectionMarkingsGeojson();
+  } else {
+    throw ("input requestedFeatures to networkToTileIndex is wrong");
+  }
+
+  const geoJSON: Object = {
+    type: "FeatureCollection",
+    features: [...JSON.parse(features).features]
+  };
+  return geoJSON;
+}
 
 async function fetchTile(ctx: RouterContext) {
   // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
@@ -36,7 +57,7 @@ async function fetchTile(ctx: RouterContext) {
   // WIP
   // const zoomedOutXY = calculateXYForZoom({ zoom, x, y }, tileIndexZoom);
   // if (zoomedOutXY === null) {
-  //   console.error(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify({zoom,x,y})}`);
+  //   console.error(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify({ zoom, x, y })}`);
   // }
 
   const maybeCacheHit = cache.accessCache({ zoom, x, y });
@@ -46,41 +67,16 @@ async function fetchTile(ctx: RouterContext) {
   }
   const network = await createStreetNetwork({ zoom, x, y });
 
-  console.log("Generating geojson...");
-  const geometryFeatures = network.toGeojsonPlain();
-  const lanePolygonFeatures = network.toLanePolygonsGeojson();
-  const laneMarkingFeatures = network.toLaneMarkingsGeojson();
-  const intersectionMarkingFeatures = network.toIntersectionMarkingsGeojson();
-
-  // TODO: This needs improving, I don't know much about GeoJSON but it works!
-  // const geojson: any = {
-  //   type: "FeatureCollection",
-  //   features: [...JSON.parse(lanePolygonsFeatures).features, ...JSON.parse(geometryFeatures).features, ...JSON.parse(laneMarkingsFeatures).features]
-  // };
-  const geometryGeoJSON = {
-    type: "FeatureCollection",
-    features: [...JSON.parse(geometryFeatures).features]
-  };
-  const lanePolygonGeoJSON = {
-    type: "FeatureCollection",
-    features: [...JSON.parse(lanePolygonFeatures).features]
-  };
-
-  const laneMarkingGeoJSON = {
-    type: "FeatureCollection",
-    features: [...JSON.parse(laneMarkingFeatures).features]
-  };
-  const intersectionMarkingGeoJSON = {
-    type: "FeatureCollection",
-    features: [...JSON.parse(intersectionMarkingFeatures).features]
-  };
+  console.log("Generating geojson for each feature...");
+  const featuresToQuery: AllFeatureTypes[] = ['geometry', 'lanePolygons', 'laneMarkings', 'intersectionMarkings']
+  const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
 
   console.log("Generating tileindex...");
 
-  const geometryTileIndex = await generateTileIndex(geometryGeoJSON, ctx);
-  const lanePolygonTileIndex = await generateTileIndex(lanePolygonGeoJSON, ctx);
-  const laneMarkingTileIndex = await generateTileIndex(laneMarkingGeoJSON, ctx);
-  const intersectionMarkingTileIndex = await generateTileIndex(intersectionMarkingGeoJSON, ctx);
+  const geometryTileIndex = await generateTileIndex(geoJSONs[0], ctx);
+  const lanePolygonTileIndex = await generateTileIndex(geoJSONs[1], ctx);
+  const laneMarkingTileIndex = await generateTileIndex(geoJSONs[2], ctx);
+  const intersectionMarkingTileIndex = await generateTileIndex(geoJSONs[3], ctx);
 
   if (geometryTileIndex === null || lanePolygonTileIndex === null ||
     laneMarkingTileIndex === null || intersectionMarkingTileIndex === null) {
