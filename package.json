@@ -6,7 +6,8 @@
     "watch-build-start": "ls src/*.* | entr -rcs \"npm run  build && npm run start\"",
     "start": "node  --trace-warnings  ./dist/app.js",
     "build": "tsc",
-    "test": "jest test/*"
+    "test": "npx ts-jest test/*",
+    "test:watch": "ls test/*.ts src/*.ts src/**/*.ts | entr -rcs 'yarn test'"
   },
   "dependencies": {
     "@koa/cors": "^4.0.0",
@@ -41,10 +42,15 @@
     "typescript": "^4.9.4"
   },
   "jest": {
-    "globals": {
-      "ts-jest": {
-        "tsConfig": "tsconfig.test.json"
-      }
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
     }
   }
 }
