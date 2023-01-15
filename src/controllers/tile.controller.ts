@@ -6,21 +6,22 @@ import { TileCoordinate } from '../interfaces.js';
 import { sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateTileCoordsForZoom } from '../utils.js';
 
-const tileCache = new BasicCache<Buffer>();
+const tileCache = new BasicCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
 
 // WIP
 const tileIndexZoom = 16;
 /** Only has values for zoom `tileIndexZoom` */
-const tileIndexCache = new BasicCache<JsStreetNetwork | 'generating'>();
+const tileIndexCache = new BasicCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
 
 let cacheHitCounter = 0;
 let cacheMissCounter = 0
-function logCacheHits() {
-  console.log(`CACHE: ${cacheHitCounter} hits, ${cacheMissCounter} misses.`);
-}
 
 
-async function fetchOrGenerateNetworkMiss(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+/*
+Generate street network (which includes Overpass request) for a given tile coordinate).
+This doesn't try to access a cache, but it will set the cache (when generating, and also when done).
+*/
+async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   console.log(`MISS network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
   cacheMissCounter += 1;
 
@@ -32,7 +33,6 @@ async function fetchOrGenerateNetworkMiss(cache: BasicCache<JsStreetNetwork | 'g
   if (shouldBeCacheHit === null || shouldBeCacheHit === 'generating') {
     throw Error('Accessing network from cache after storing it failed');
   }
-  logCacheHits();
   return shouldBeCacheHit;
 }
 
@@ -42,7 +42,8 @@ function delay(ms: number) {
 
 /**
  * If network already exists grab the network from cache.
- * If not, generate it and store in cache, then return it.
+ * If network is being generated, spinlock for some time and if it doesn't appear, generate it.
+ * If network isn't being generated and isnt' in cache, generate it and store in cache.
  */
 async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   let maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
@@ -50,7 +51,6 @@ async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'gener
   if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
     console.log(`HIT network cache for ${coordStr}!`);
     cacheHitCounter += 1;
-    logCacheHits();
     return maybeCacheHit;
   }
 
@@ -71,10 +71,13 @@ async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'gener
       }
     }
   }
-  return fetchOrGenerateNetworkMiss(cache, zoomedOutTileCoordinate);
+  return generateNetwork(cache, zoomedOutTileCoordinate);
 }
 
-async function fetchTile(ctx: RouterContext) {
+/**
+ * Takes a request and returns a vector tile.
+*/
+async function fetchVectorTile(ctx: RouterContext) {
   // For future: https://api.mapbox.com/v4/{tileset_id}/{zoom}/{x}/{y}.{format}
 
   // If any validation returns a false and returns error, return.
@@ -88,27 +91,34 @@ async function fetchTile(ctx: RouterContext) {
   const zoom = parseInt(ctx.params.zoom, 10);
   const x = parseInt(ctx.params.x, 10);
   const y = parseInt(ctx.params.y, 10);
+  const tileCoord: TileCoordinate = {zoom,x,y};
+
+  const maybeTileCacheHit = tileCache.accessCache(tileCoord);
+  if (maybeTileCacheHit !== null) {
+    sendProtobuf(ctx, maybeTileCacheHit);
+    return;
+  }
 
   // Zoom out to a fixed zoom value, and calculate x & y values for that
-  const zoomedOutTileCoordinate = calculateTileCoordsForZoom({ zoom, x, y }, tileIndexZoom);
+  const zoomedOutTileCoordinate = calculateTileCoordsForZoom(tileCoord, tileIndexZoom);
   if (zoomedOutTileCoordinate === null) {
-    console.error(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify({ zoom, x, y })}`);
-    ctx.body = `Can't zoom out to ${tileIndexZoom} from ${JSON.stringify({ zoom, x, y })}`;
+    console.error(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`);
+    ctx.body = `Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`;
     ctx.status = 501;
     return;
   }
   // Get the network for that fixed zoom value (ie: get the Overpass XML and call the osm2streets bindings)
   const network = await fetchOrGenerateNetwork(tileIndexCache, zoomedOutTileCoordinate);
 
-  const buf = networkToVectorTileBuffer(network, { zoom, x, y });
+  const buf = networkToVectorTileBuffer(network, tileCoord);
+  tileCache.setCache(tileCoord, buf);
   sendProtobuf(ctx, buf);
-  tileCache.setCache({ zoom, x, y }, buf);
 }
 
 export default class UserController {
   public static async getUsers(ctx: RouterContext) {
     try {
-      await fetchTile(ctx);
+      await fetchVectorTile(ctx);
     } catch (e) {
       console.log(e);
       ctx.status = 500;
