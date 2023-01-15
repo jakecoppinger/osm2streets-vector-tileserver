@@ -99,7 +99,7 @@ async function fetchVectorTile(ctx: RouterContext) {
   // Zoom out to a fixed zoom value, and calculate x & y values for that
   const zoomedOutTileCoordinate = calculateTileCoordsForZoom(tileCoord, tileIndexZoom);
   if (zoomedOutTileCoordinate === null) {
-    console.error(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`);
+    console.log(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`);
     ctx.body = `Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`;
     ctx.status = 501;
     return;
