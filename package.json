@@ -5,13 +5,15 @@
   "scripts": {
     "watch-build-start": "ls src/*.* | entr -rcs \"npm run  build && npm run start\"",
     "start": "node  --trace-warnings  ./dist/app.js 2> /dev/null",
-    "start:show-errors": "node  --trace-warnings  ./dist/app.js 2> /dev/null",
+    "start:show-errors": "node  --trace-warnings  ./dist/app.js",
     "build": "tsc",
     "test": "npx jest test/*",
     "test:watch": "ls test/*.ts src/*.ts src/**/*.ts | entr -rcs 'yarn test'"
   },
   "dependencies": {
     "@koa/cors": "^4.0.0",
+    "@types/cache-manager": "^4.0.2",
+    "cache-manager": "^5.1.4",
     "geojson-vt": "^3.2.1",
     "koa": "^2.14.1",
     "koa-bodyparser": "^4.3.0",

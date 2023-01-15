@@ -22,7 +22,6 @@ export interface BasicCacheConfig {
 }
 
 export interface BasicCache<T> {
-  accessCache(coord: TileCoordinate): T | null;
-  setCache(coord: TileCoordinate, val: T): void;
-  maybeLogHitsMisses(): void;
+  accessCache(coord: TileCoordinate): Promise<T | null>;
+  setCache(coord: TileCoordinate, val: T): Promise<void>;
 }

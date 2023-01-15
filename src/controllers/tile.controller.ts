@@ -1,35 +1,37 @@
-import Router, { RouterContext } from 'koa-router';
+import { RouterContext } from 'koa-router';
 import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
 import { MemoryCache } from '../memory-cache.js';
 import { createStreetNetwork, networkToVectorTileBuffer } from '../geospatial-utils.js';
-import { TileCoordinate } from '../interfaces.js';
+import { BasicCache, TileCoordinate } from '../interfaces.js';
 import { sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateTileCoordsForZoom } from '../utils.js';
+import { LRUCache } from '../lru-cache.js';
 
-const tileCache = new MemoryCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
+const tileCache = new LRUCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
+const tileIndexCache = new LRUCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
 
-// WIP
-const tileIndexZoom = 16;
+// const tileCache = new MemoryCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
+// const tileIndexCache = new MemoryCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
+
 /** Only has values for zoom `tileIndexZoom` */
-const tileIndexCache = new MemoryCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
+const tileIndexZoom = 16;
 
-let cacheHitCounter = 0;
-let cacheMissCounter = 0
 
+export async function setupCaches() {
+  await tileCache.setup();
+  await tileIndexCache.setup();
+}
 
 /*
 Generate street network (which includes Overpass request) for a given tile coordinate).
 This doesn't try to access a cache, but it will set the cache (when generating, and also when done).
 */
-async function generateNetwork(cache: MemoryCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
-  console.log(`MISS network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
-  cacheMissCounter += 1;
-
+async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   cache.setCache(zoomedOutTileCoordinate, 'generating');
   const network = await createStreetNetwork(zoomedOutTileCoordinate);
   cache.setCache(zoomedOutTileCoordinate, network);
 
-  const shouldBeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
+  const shouldBeCacheHit = await cache.accessCache(zoomedOutTileCoordinate);
   if (shouldBeCacheHit === null || shouldBeCacheHit === 'generating') {
     throw Error('Accessing network from cache after storing it failed');
   }
@@ -45,12 +47,10 @@ function delay(ms: number) {
  * If network is being generated, spinlock for some time and if it doesn't appear, generate it.
  * If network isn't being generated and isnt' in cache, generate it and store in cache.
  */
-async function fetchOrGenerateNetwork(cache: MemoryCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
-  let maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
+async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+  let maybeCacheHit = await cache.accessCache(zoomedOutTileCoordinate);
   const coordStr = JSON.stringify(zoomedOutTileCoordinate)
   if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
-    console.log(`HIT network cache for ${coordStr}!`);
-    cacheHitCounter += 1;
     return maybeCacheHit;
   }
 
@@ -63,7 +63,7 @@ async function fetchOrGenerateNetwork(cache: MemoryCache<JsStreetNetwork | 'gene
     while (totalWaited < maxWaitTimeMillis) {
       await delay(millisBetweenChecks);
       totalWaited += millisBetweenChecks;
-      maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
+      maybeCacheHit = await cache.accessCache(zoomedOutTileCoordinate);
       const foundInCache: boolean = maybeCacheHit !== null && maybeCacheHit !== 'generating'
       console.log(`Waited on ${coordStr} for ${millisBetweenChecks} (${totalWaited} total), ${foundInCache ? 'success' : 'failure'}`);
       if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
@@ -93,7 +93,7 @@ async function fetchVectorTile(ctx: RouterContext) {
   const y = parseInt(ctx.params.y, 10);
   const tileCoord: TileCoordinate = {zoom,x,y};
 
-  const maybeTileCacheHit = tileCache.accessCache(tileCoord);
+  const maybeTileCacheHit = await tileCache.accessCache(tileCoord);
   if (maybeTileCacheHit !== null) {
     sendProtobuf(ctx, maybeTileCacheHit);
     return;

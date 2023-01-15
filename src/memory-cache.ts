@@ -28,21 +28,24 @@ export class MemoryCache<T> implements BasicCache<T> {
     }
     this.cache = {}
   }
+  async setup() {
+
+  }
   /**
    * Returns value if it exists, if not returns null.
   */
-  accessCache({ zoom, x, y }: TileCoordinate): T | null {
+  accessCache({ zoom, x, y }: TileCoordinate): Promise<T | null> {
     if (this.cache[zoom] && this.cache[zoom][x] && this.cache[zoom][x][y]) {
       this.hits += 1;
       this.maybeLogHitsMisses();
-      return this.cache[zoom][x][y];
+      return Promise.resolve(this.cache[zoom][x][y]);
     }
     this.misses += 1;
     this.maybeLogHitsMisses();
-    return null;
+    return Promise.resolve(null);
   }
 
-  setCache({ zoom, x, y }: TileCoordinate, val: T): void {
+  setCache({ zoom, x, y }: TileCoordinate, val: T): Promise<void> {
     if (this.cache[zoom] == undefined) {
       this.cache[zoom] = {};
     }
@@ -50,6 +53,7 @@ export class MemoryCache<T> implements BasicCache<T> {
       this.cache[zoom][x] = {};
     }
     this.cache[zoom][x][y] = val;
+    return Promise.resolve();
   }
   maybeLogHitsMisses() {
     if (this.logHitsMisses) {
