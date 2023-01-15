@@ -1,17 +1,17 @@
 import Router, { RouterContext } from 'koa-router';
 import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
-import { BasicCache } from '../cache.js';
+import { MemoryCache } from '../memory-cache.js';
 import { createStreetNetwork, networkToVectorTileBuffer } from '../geospatial-utils.js';
 import { TileCoordinate } from '../interfaces.js';
 import { sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateTileCoordsForZoom } from '../utils.js';
 
-const tileCache = new BasicCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
+const tileCache = new MemoryCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
 
 // WIP
 const tileIndexZoom = 16;
 /** Only has values for zoom `tileIndexZoom` */
-const tileIndexCache = new BasicCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
+const tileIndexCache = new MemoryCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
 
 let cacheHitCounter = 0;
 let cacheMissCounter = 0
@@ -21,7 +21,7 @@ let cacheMissCounter = 0
 Generate street network (which includes Overpass request) for a given tile coordinate).
 This doesn't try to access a cache, but it will set the cache (when generating, and also when done).
 */
-async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+async function generateNetwork(cache: MemoryCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   console.log(`MISS network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
   cacheMissCounter += 1;
 
@@ -45,7 +45,7 @@ function delay(ms: number) {
  * If network is being generated, spinlock for some time and if it doesn't appear, generate it.
  * If network isn't being generated and isnt' in cache, generate it and store in cache.
  */
-async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+async function fetchOrGenerateNetwork(cache: MemoryCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   let maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
   const coordStr = JSON.stringify(zoomedOutTileCoordinate)
   if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {

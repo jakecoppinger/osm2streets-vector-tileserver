@@ -1,20 +1,10 @@
-import { TileCoordinate } from "./interfaces.js";
+import { BasicCache, BasicCacheConfig, TileCoordinate } from "./interfaces.js";
 
-export interface BasicCacheConfig {
-  /**
-   * Should the cache log out the hits & misses data on each hit or miss on access
-   */
-  logHitsMisses?: boolean;
-  /**
-   * Name of the cache to include in hits/misses logs
-   */
-  cacheName?: string,
-}
 
 /**
  * Quick and dirty in memory cache. Should really be an improved solution with cache invalidation etc.
  */
-export class BasicCache<T> {
+export class MemoryCache<T> implements BasicCache<T> {
   // "3D" key value dict
   cacheName?: string = undefined;
   cache: {
@@ -60,11 +50,6 @@ export class BasicCache<T> {
       this.cache[zoom][x] = {};
     }
     this.cache[zoom][x][y] = val;
-  }
-  clearCache(): void {
-    this.cache = {};
-    this.hits = 0;
-    this.misses = 0;
   }
   maybeLogHitsMisses() {
     if (this.logHitsMisses) {
