@@ -50,3 +50,7 @@ export function calculateTileCoordsForZoom({zoom, x, y}: TileCoordinate, targetZ
   }
   return {zoom: targetZoom, x: xIterator, y: yIterator };
 }
+
+export function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

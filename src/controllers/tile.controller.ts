@@ -4,7 +4,7 @@ import { MemoryCache } from '../memory-cache.js';
 import { createStreetNetwork, networkToVectorTileBuffer } from '../geospatial-utils.js';
 import { BasicCache, TileCoordinate } from '../interfaces.js';
 import { sendProtobuf, validateNumberParam } from '../router-utils.js';
-import { calculateTileCoordsForZoom } from '../utils.js';
+import { calculateTileCoordsForZoom, delay } from '../utils.js';
 import { LRUCache } from '../lru-cache.js';
 
 const tileCache = new LRUCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
@@ -38,9 +38,6 @@ async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>
   return shouldBeCacheHit;
 }
 
-function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 /**
  * If network already exists grab the network from cache.
@@ -115,7 +112,7 @@ async function fetchVectorTile(ctx: RouterContext) {
   sendProtobuf(ctx, buf);
 }
 
-export default class UserController {
+export default class TileController {
   public static async getUsers(ctx: RouterContext) {
     try {
       await fetchVectorTile(ctx);

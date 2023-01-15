@@ -19,19 +19,9 @@ export class LRUCache<T> implements BasicCache<T> {
   }
   async setup() {
     this.cache = await caching('memory', {
-      max: 1000,
-      ttl: 10 * 1000 /*milliseconds*/,
+      max: 100000,
+      ttl: 1000 * 60 * 60
     });
-    // this.cache = await cacheManager.caching({
-    //   options: {
-    //     ttl: 60 * 60,
-    //     subdirs: true,
-    //     path: "./cache",
-    //     maxsize: 100000000,
-    //     preventfill: true
-    //   }
-    // });
-
   }
   /**
    * Returns value if it exists, if not returns null.
