@@ -6,42 +6,72 @@ import { TileCoordinate } from '../interfaces.js';
 import { sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateTileCoordsForZoom } from '../utils.js';
 
-const cache = new BasicCache<Buffer>();
+const tileCache = new BasicCache<Buffer>();
 
 // WIP
 const tileIndexZoom = 16;
 /** Only has values for zoom `tileIndexZoom` */
-const tileIndexCache = new BasicCache<JsStreetNetwork>();
+const tileIndexCache = new BasicCache<JsStreetNetwork | 'generating'>();
 
 let cacheHitCounter = 0;
 let cacheMissCounter = 0
 function logCacheHits() {
   console.log(`CACHE: ${cacheHitCounter} hits, ${cacheMissCounter} misses.`);
 }
-/**
- * If network already exists grab the network from cache.
- * If not, generate it and store in cache, then return it.
- */
-async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
-  const maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
-  if (maybeCacheHit !== null) {
-    console.log(`HIT network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
-    cacheHitCounter += 1;
-    logCacheHits();
-    return maybeCacheHit;
-  }
+
+
+async function fetchOrGenerateNetworkMiss(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   console.log(`MISS network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
   cacheMissCounter += 1;
 
+  cache.setCache(zoomedOutTileCoordinate, 'generating');
   const network = await createStreetNetwork(zoomedOutTileCoordinate);
   cache.setCache(zoomedOutTileCoordinate, network);
 
   const shouldBeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
-  if (shouldBeCacheHit === null) {
+  if (shouldBeCacheHit === null || shouldBeCacheHit === 'generating') {
     throw Error('Accessing network from cache after storing it failed');
   }
   logCacheHits();
   return shouldBeCacheHit;
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * If network already exists grab the network from cache.
+ * If not, generate it and store in cache, then return it.
+ */
+async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+  let maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
+  const coordStr = JSON.stringify(zoomedOutTileCoordinate)
+  if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
+    console.log(`HIT network cache for ${coordStr}!`);
+    cacheHitCounter += 1;
+    logCacheHits();
+    return maybeCacheHit;
+  }
+
+  if (maybeCacheHit === 'generating') {
+    // Tile is being generated, wait (spinlock) on it).
+    const maxWaitTimeMillis = 5000;
+    const millisBetweenChecks = 1000;
+    let totalWaited = 0;
+
+    while (totalWaited < maxWaitTimeMillis) {
+      await delay(millisBetweenChecks);
+      totalWaited += millisBetweenChecks;
+      maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
+      const foundInCache: boolean = maybeCacheHit !== null && maybeCacheHit !== 'generating'
+      console.log(`Waited on ${coordStr} for ${millisBetweenChecks} (${totalWaited} total), ${foundInCache ? 'success' : 'failure'}`);
+      if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
+        return maybeCacheHit;
+      }
+    }
+  }
+  return fetchOrGenerateNetworkMiss(cache, zoomedOutTileCoordinate);
 }
 
 async function fetchTile(ctx: RouterContext) {
@@ -59,7 +89,6 @@ async function fetchTile(ctx: RouterContext) {
   const x = parseInt(ctx.params.x, 10);
   const y = parseInt(ctx.params.y, 10);
 
-
   // Zoom out to a fixed zoom value, and calculate x & y values for that
   const zoomedOutTileCoordinate = calculateTileCoordsForZoom({ zoom, x, y }, tileIndexZoom);
   if (zoomedOutTileCoordinate === null) {
@@ -73,7 +102,7 @@ async function fetchTile(ctx: RouterContext) {
 
   const buf = networkToVectorTileBuffer(network, { zoom, x, y });
   sendProtobuf(ctx, buf);
-  cache.setCache({ zoom, x, y }, buf);
+  tileCache.setCache({ zoom, x, y }, buf);
 }
 
 export default class UserController {

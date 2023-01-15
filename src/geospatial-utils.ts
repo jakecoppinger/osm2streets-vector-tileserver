@@ -11,9 +11,7 @@ import vtpbf from 'vt-pbf';
 export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promise<JsStreetNetwork> {
   const osmXML = await fetchOverpassXML({ zoom, x, y });
 
-  console.log("Generating road network...");
   const boundaryGeojson = "";
-
 
   const network = new JsStreetNetwork(osmXML, boundaryGeojson, {
     // Play with options in the sidebar at https://a-b-street.github.io/osm2streets/
@@ -28,9 +26,8 @@ export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promi
     /* If true, use experimental osm2lanes for figuring out lanes per road. If false, use the
     classic algorithm. */
     osm2lanes: false,
-    debug: false
   });
-  const debugOutput = network.toGeojsonPlain();
+  // const debugOutput = network.toGeojsonPlain();
   return network;
 }
 
