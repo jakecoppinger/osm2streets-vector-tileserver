@@ -28,9 +28,9 @@ export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promi
     /* If true, use experimental osm2lanes for figuring out lanes per road. If false, use the
     classic algorithm. */
     osm2lanes: false,
+    debug: false
   });
   const debugOutput = network.toGeojsonPlain();
-  console.log({debugOutput});
   return network;
 }
 
@@ -56,14 +56,13 @@ export function networkToGeoJSON(requestedFeatures: AllFeatureTypes, streetNetwo
 }
 
 export function networkToVectorTileBuffer(network: JsStreetNetwork, { zoom, x, y }: TileCoordinate): Buffer {
-  console.log("Generating geojson for each feature...");
   const featuresToQuery: AllFeatureTypes[] = ['geometry', 'lanePolygons', 'laneMarkings', 'intersectionMarkings']
   const geoJSONs = featuresToQuery.map(featureType => networkToGeoJSON(featureType, network));
 
-  console.log("Generating tileindex...");
+  // console.log("Generating tileindex...");
   const tileIndexes = geoJSONs.map(generateTileIndex);
 
-  console.log("Generating tile for each layer...");
+  // console.log("Generating tile for each layer...");
   const tiles = tileIndexes.map(tileIndex => tileIndex.getTile(zoom, x, y));
 
   const missingTile = tiles.findIndex(tile => tile === null) !== -1;

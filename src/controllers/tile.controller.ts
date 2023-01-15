@@ -1,12 +1,9 @@
 import Router, { RouterContext } from 'koa-router';
 import { JsStreetNetwork } from "osm2streets-js-node/osm2streets_js.js";
-// Can't find types for vt-pbf
-// @ts-ignore
-import vtpbf from 'vt-pbf';
 import { BasicCache } from '../cache.js';
 import { createStreetNetwork, networkToVectorTileBuffer } from '../geospatial-utils.js';
-import { GeoJSONVT, TileCoordinate } from '../interfaces.js';
-import { fetchOverpassXML, generateTileIndex, sendProtobuf, validateNumberParam } from '../router-utils.js';
+import { TileCoordinate } from '../interfaces.js';
+import { sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateTileCoordsForZoom } from '../utils.js';
 
 const cache = new BasicCache<Buffer>();
@@ -16,6 +13,11 @@ const tileIndexZoom = 16;
 /** Only has values for zoom `tileIndexZoom` */
 const tileIndexCache = new BasicCache<JsStreetNetwork>();
 
+let cacheHitCounter = 0;
+let cacheMissCounter = 0
+function logCacheHits() {
+  console.log(`CACHE: ${cacheHitCounter} hits, ${cacheMissCounter} misses.`);
+}
 /**
  * If network already exists grab the network from cache.
  * If not, generate it and store in cache, then return it.
@@ -23,20 +25,22 @@ const tileIndexCache = new BasicCache<JsStreetNetwork>();
 async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
   const maybeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
   if (maybeCacheHit !== null) {
-    console.log(`network cache hit for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
+    console.log(`HIT network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
+    cacheHitCounter += 1;
+    logCacheHits();
     return maybeCacheHit;
   }
-  console.log(`network cache miss for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
+  console.log(`MISS network cache for ${JSON.stringify(zoomedOutTileCoordinate)}!`);
+  cacheMissCounter += 1;
 
-  console.log("Generating street network...");
   const network = await createStreetNetwork(zoomedOutTileCoordinate);
   cache.setCache(zoomedOutTileCoordinate, network);
-
 
   const shouldBeCacheHit = cache.accessCache(zoomedOutTileCoordinate);
   if (shouldBeCacheHit === null) {
     throw Error('Accessing network from cache after storing it failed');
   }
+  logCacheHits();
   return shouldBeCacheHit;
 }
 
@@ -67,7 +71,6 @@ async function fetchTile(ctx: RouterContext) {
   // Get the network for that fixed zoom value (ie: get the Overpass XML and call the osm2streets bindings)
   const network = await fetchOrGenerateNetwork(tileIndexCache, zoomedOutTileCoordinate);
 
-  console.log(`network before calculating vector tiles: ${network}`);
   const buf = networkToVectorTileBuffer(network, { zoom, x, y });
   sendProtobuf(ctx, buf);
   cache.setCache({ zoom, x, y }, buf);

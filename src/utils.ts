@@ -42,12 +42,11 @@ export function calculateTileCoordsForZoom({zoom, x, y}: TileCoordinate, targetZ
   }
   let zoomIterator: number = zoom;
   let xIterator: number = x;
-  let yIterator: number = x;
+  let yIterator: number = y;
   while (zoomIterator > targetZoom) {
     xIterator = Math.floor(xIterator / 2);
     yIterator = Math.floor(yIterator / 2);
     zoomIterator -= 1;
-    console.log({xIterator, yIterator, zoomIterator});
   }
   return {zoom: targetZoom, x: xIterator, y: yIterator };
 }
