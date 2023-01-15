@@ -29,6 +29,8 @@ export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promi
     classic algorithm. */
     osm2lanes: false,
   });
+  const debugOutput = network.toGeojsonPlain();
+  console.log({debugOutput});
   return network;
 }
 

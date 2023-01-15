@@ -9,7 +9,7 @@ export function tile2lat(y: number, z: number): number {
   return (180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))));
 }
 
-export function generateOverpassTurboQueryUrl({ zoom, x, y }: { zoom: number, x: number, y: number }): string {
+export function generateOverpassTurboQueryUrl({ zoom, x, y }: TileCoordinate): string {
   // https://gis.stackexchange.com/questions/17278/calculate-lat-lon-bounds-for-individual-tile-generated-from-gdal2tiles
   // latitude is horizontal lines and specifies how north/south something is
   // longitude is vertical lines and specifies how east/west something is
@@ -31,11 +31,12 @@ export function generateOverpassTurboQueryUrl({ zoom, x, y }: { zoom: number, x:
 }
 
 
-export function calculateXYForZoom({zoom, x, y}: TileCoordinate, targetZoom: number): { x: number, y: number } | null {
+export function calculateTileCoordsForZoom({zoom, x, y}: TileCoordinate, targetZoom: number): TileCoordinate | null {
   if (targetZoom === zoom) {
-    return { x, y };
+    return {zoom, x, y };
   }
-  if (targetZoom < zoom) {
+  // Larger number means more zoomed in
+  if (zoom < targetZoom) {
     // We can't zoom out
     return null;
   }
@@ -43,9 +44,10 @@ export function calculateXYForZoom({zoom, x, y}: TileCoordinate, targetZoom: num
   let xIterator: number = x;
   let yIterator: number = x;
   while (zoomIterator > targetZoom) {
-    xIterator /= 2;
-    yIterator /= 2;
+    xIterator = Math.floor(xIterator / 2);
+    yIterator = Math.floor(yIterator / 2);
     zoomIterator -= 1;
+    console.log({xIterator, yIterator, zoomIterator});
   }
-  return { x: xIterator, y: yIterator };
+  return {zoom: targetZoom, x: xIterator, y: yIterator };
 }

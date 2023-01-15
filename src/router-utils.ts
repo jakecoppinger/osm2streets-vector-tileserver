@@ -25,6 +25,10 @@ export async function fetchOverpassXML({ zoom, x, y }:
     if (osmXML === undefined) {
       throw Error("Error: OSM XML is undefined")
     }
+    if(osmXML.length < 300) {
+      console.log(osmXML);
+      throw Error("OSM XML length is short - likely unexpected output");
+    }
     return osmXML;
 
   } catch (e) {
