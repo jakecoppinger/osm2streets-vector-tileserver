@@ -1,6 +1,5 @@
 {
-  "version": "0.0.1",
-  "module": "commonjs",
+  "module": "esnext",
   "compilerOptions": {
     "outDir": "./dist",
     "lib": ["es2017", "dom"],
