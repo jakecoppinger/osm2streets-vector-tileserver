@@ -35,6 +35,8 @@ npm run start
 ```
 
 # Opening in QGIS
+Note - this hasn't been done for some time and may not work at the moment.
+
 - Run the server as above
 - Install the "Vector Tiles Reader" plugin??
 - Navigate to Layer menu -> Add Layer -> Add "Vector tile layer"
@@ -45,11 +47,15 @@ You should see requests hit your command line.
 
 # Architecture / how it works
 - takes tileserver requests (eg. http://localhost:3000/tile/16/60293/39332)
-- Finds the bounding box of that tile
-- Downloads the OSM XML from a local overpass turbo instance for that bounding box
-- Calls osm2streets via the NodeJS bindings
+- Zoom out from the requested tile until hitting zoom level 15
+- Then fetch the osm2streets output for this tile. If it doesn't exist:
+  - Find the bounding box of that zoomed out tile
+  - Downloads the OSM XML from a local overpass turbo instance for that bounding box
+  - Calls osm2streets via the NodeJS bindings
+  - Cache the results of osm2streets for the zoomed out tile
+- Use the osm2streets output for the zoomed out tile and generate the smaller requested tile
 - Generates the geojson for all features and combines them
-- Caches the output for a given tile zoom/x/y in a JS variable (needs improvement)
+- Caches the output for a given tile zoom/x/y
 
 # Adding this as a vector tile layer in Mapbox GL JS
 
