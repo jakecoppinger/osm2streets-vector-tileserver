@@ -20,7 +20,8 @@ export class LRUCache<T> implements BasicCache<T> {
   async setup() {
     this.cache = await caching('memory', {
       max: 100000,
-      ttl: 1000 * 60 * 60
+      // 24 hour cache
+      ttl: 1000 * 60 * 60 * 24
     });
   }
   /**

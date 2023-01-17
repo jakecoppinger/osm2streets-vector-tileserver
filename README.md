@@ -14,7 +14,6 @@ This is a Typescript Koa webserver that takes vector tile requests
 It uses the [NodeJS bindings](https://www.npmjs.com/package/osm2streets-js-node) for a wasm
 build of [osm2streets](https://github.com/a-b-street/osm2streets), which itself is written in Rust.
 
-
 # Running it
 ## Overpass Turbo
 You'll need to stand up your own Overpass Turbo instance - it makes one call for each tile, which
