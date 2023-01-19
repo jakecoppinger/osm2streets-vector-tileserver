@@ -1,5 +1,6 @@
 import { RouterContext } from "koa-router";
 import geojsonvt from 'geojson-vt';
+import { performance } from 'perf_hooks';
 
 import { generateOverpassTurboQueryUrl } from "./utils.js";
 // Can't find types for vt-pbf
@@ -18,10 +19,11 @@ export async function fetchOverpassXML({ zoom, x, y }:
   const url = generateOverpassTurboQueryUrl({ zoom, x, y });
   // HIT http://localhost:3000/tile/16/60293/39332 TO TEST :)
   try {
-    console.log("Fetching XML from overpass...");
+    const startTime = performance.now()
     const resp = await fetch(url);
     const osmXML = await resp.text();
-    console.log("Got OSM input.");
+    const endTime = performance.now()
+    console.log(`📥 Got overpass response, took ${Math.floor(endTime - startTime)} milliseconds`)
     if (osmXML === undefined) {
       throw Error("Error: OSM XML is undefined")
     }

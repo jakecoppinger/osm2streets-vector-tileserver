@@ -13,6 +13,8 @@ export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promi
 
   const boundaryGeojson = "";
 
+  const startTime = performance.now()
+
   const network = new JsStreetNetwork(osmXML, boundaryGeojson, {
     // Play with options in the sidebar at https://a-b-street.github.io/osm2streets/
     debug_each_step: true,
@@ -27,6 +29,8 @@ export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promi
     classic algorithm. */
     osm2lanes: false,
   });
+  const endTime = performance.now()
+  console.log(`🚧 Generated street network, took ${Math.floor(endTime - startTime)} milliseconds`)
   // const debugOutput = network.toGeojsonPlain();
   return network;
 }

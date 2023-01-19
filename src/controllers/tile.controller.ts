@@ -62,7 +62,7 @@ async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'gener
       totalWaited += millisBetweenChecks;
       maybeCacheHit = await cache.accessCache(zoomedOutTileCoordinate);
       const foundInCache: boolean = maybeCacheHit !== null && maybeCacheHit !== 'generating'
-      console.log(`Waited on ${coordStr} for ${millisBetweenChecks} (${totalWaited} total), ${foundInCache ? 'success' : 'failure'}`);
+      console.log(`🕥 Waited on ${coordStr} for ${millisBetweenChecks} (${totalWaited} total), ${foundInCache ? 'success' : 'failure'}`);
       if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
         return maybeCacheHit;
       }
