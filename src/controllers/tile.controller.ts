@@ -14,7 +14,7 @@ const tileIndexCache = new LRUCache<JsStreetNetwork | 'generating'>({logHitsMiss
 // const tileIndexCache = new MemoryCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
 
 /** Only has values for zoom `tileIndexZoom` */
-const tileIndexZoom = 15;
+const tileIndexZoom = 17;
 
 
 export async function setupCaches() {
