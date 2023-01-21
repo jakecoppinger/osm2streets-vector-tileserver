@@ -1,5 +1,5 @@
-import { OVERPASS_API } from "./config";
-import { TileCoordinate } from "./interfaces";
+import { OVERPASS_API } from "./config.js";
+import { TileCoordinate } from "./interfaces.js";
 
 
 // from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
