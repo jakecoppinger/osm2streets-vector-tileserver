@@ -16,12 +16,14 @@ build of [osm2streets](https://github.com/a-b-street/osm2streets), which itself 
 
 # Running it
 ## Overpass Turbo
-You'll need to stand up your own Overpass Turbo instance - it makes one call for each tile, which
-would be too much for the public one (https://overpass-turbo.eu/) unless you're making one call
-at a time for debugging.
+You may need to stand up your own Overpass Turbo instance. It used to be much higher traffic but
+now utilises a lot of caching. 
 
 See https://hub.docker.com/r/wiktorn/overpass-api for instructions. It's one Docker run command!
 Make sure to choose your region to not download a map of the entire planet :)
+
+## Configuring
+Adjust variables in `config.ts` to your liking!
 
 # Running osm2streets vector tileserver
 See package.json scripts.
@@ -49,7 +51,7 @@ You should see requests hit your command line.
 - Zoom out from the requested tile until hitting zoom level 15
 - Then fetch the osm2streets output for this tile. If it doesn't exist:
   - Find the bounding box of that zoomed out tile
-  - Downloads the OSM XML from a local overpass turbo instance for that bounding box
+  - Downloads the OSM XML from an overpass turbo instance for that bounding box
   - Calls osm2streets via the NodeJS bindings
   - Cache the results of osm2streets for the zoomed out tile
 - Use the osm2streets output for the zoomed out tile and generate the smaller requested tile
@@ -88,15 +90,12 @@ map.on("load", function () {
 ```
 
 # Future improvments / PRs you could write :)
-- Add guide for how to add vector layor in Mapbox GL JS or another JS frontend
-- Fix styles/why are there no colours?
-- Improve caching design. There's so much that can be done on this!
-  - Every time GeoJSON is generated for a given tile, the GeoJSON is "exact" - so tiles could be
-    generated and cached many layers down.
 - Clarify the state of overlap between tiles (ie. do we need to apply any lessons from
   https://blog.cyclemap.link/2020-01-25-tilebuffer/ ?
   - I think the Overpass API returns the entire way if a single part of it is in the bounding box,
     so I assume tons of overlap is "built in".
+- Hide (or set opacity to 20%) for underground roads
+- Colour code roads by speed
 
 Create an issue or work in progress PR if you start working on something to prevent duplicated
 effort.

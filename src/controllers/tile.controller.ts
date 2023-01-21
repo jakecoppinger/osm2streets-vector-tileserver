@@ -6,15 +6,13 @@ import { BasicCache, TileCoordinate } from '../interfaces.js';
 import { sendProtobuf, validateNumberParam } from '../router-utils.js';
 import { calculateTileCoordsForZoom, delay } from '../utils.js';
 import { LRUCache } from '../lru-cache.js';
+import { MIN_ZOOM } from '../config.js';
 
-const tileCache = new LRUCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
-const tileIndexCache = new LRUCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
+const tileCache = new LRUCache<Buffer>({ logHitsMisses: true, cacheName: 'tileCache' });
+const tileIndexCache = new LRUCache<JsStreetNetwork | 'generating'>({ logHitsMisses: true, cacheName: 'network cache' });
 
 // const tileCache = new MemoryCache<Buffer>({logHitsMisses: true, cacheName:'tileCache'});
 // const tileIndexCache = new MemoryCache<JsStreetNetwork | 'generating'>({logHitsMisses: true, cacheName:'network cache'});
-
-/** Only has values for zoom `tileIndexZoom` */
-const tileIndexZoom = 17;
 
 
 export async function setupCaches() {
@@ -26,9 +24,12 @@ export async function setupCaches() {
 Generate street network (which includes Overpass request) for a given tile coordinate).
 This doesn't try to access a cache, but it will set the cache (when generating, and also when done).
 */
-async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork | null> {
   cache.setCache(zoomedOutTileCoordinate, 'generating');
   const network = await createStreetNetwork(zoomedOutTileCoordinate);
+  if (network === null) {
+    return null;
+  }
   cache.setCache(zoomedOutTileCoordinate, network);
 
   const shouldBeCacheHit = await cache.accessCache(zoomedOutTileCoordinate);
@@ -44,7 +45,7 @@ async function generateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>
  * If network is being generated, spinlock for some time and if it doesn't appear, generate it.
  * If network isn't being generated and isnt' in cache, generate it and store in cache.
  */
-async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork> {
+async function fetchOrGenerateNetwork(cache: BasicCache<JsStreetNetwork | 'generating'>, zoomedOutTileCoordinate: TileCoordinate): Promise<JsStreetNetwork | null> {
   let maybeCacheHit = await cache.accessCache(zoomedOutTileCoordinate);
   const coordStr = JSON.stringify(zoomedOutTileCoordinate)
   if (maybeCacheHit !== null && maybeCacheHit !== 'generating') {
@@ -88,7 +89,7 @@ async function fetchVectorTile(ctx: RouterContext) {
   const zoom = parseInt(ctx.params.zoom, 10);
   const x = parseInt(ctx.params.x, 10);
   const y = parseInt(ctx.params.y, 10);
-  const tileCoord: TileCoordinate = {zoom,x,y};
+  const tileCoord: TileCoordinate = { zoom, x, y };
 
   const maybeTileCacheHit = await tileCache.accessCache(tileCoord);
   if (maybeTileCacheHit !== null) {
@@ -97,15 +98,20 @@ async function fetchVectorTile(ctx: RouterContext) {
   }
 
   // Zoom out to a fixed zoom value, and calculate x & y values for that
-  const zoomedOutTileCoordinate = calculateTileCoordsForZoom(tileCoord, tileIndexZoom);
+  const zoomedOutTileCoordinate = calculateTileCoordsForZoom(tileCoord, MIN_ZOOM);
   if (zoomedOutTileCoordinate === null) {
-    console.log(`Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`);
-    ctx.body = `Can't zoom out to ${tileIndexZoom} from ${JSON.stringify(tileCoord)}`;
+    console.log(`Can't zoom out to ${MIN_ZOOM} from ${JSON.stringify(tileCoord)}`);
+    ctx.body = `Can't zoom out to ${MIN_ZOOM} from ${JSON.stringify(tileCoord)}`;
     ctx.status = 501;
     return;
   }
   // Get the network for that fixed zoom value (ie: get the Overpass XML and call the osm2streets bindings)
   const network = await fetchOrGenerateNetwork(tileIndexCache, zoomedOutTileCoordinate);
+  if (network === null) {
+    ctx.body = "";
+    ctx.status = 200;
+    return;
+  }
 
   const buf = networkToVectorTileBuffer(network, tileCoord);
   tileCache.setCache(tileCoord, buf);
@@ -117,7 +123,13 @@ export default class TileController {
     try {
       await fetchVectorTile(ctx);
     } catch (e) {
-      console.log(e);
+      if ((e as any).message.includes('Overpass Turbo is rate limiting us')) {
+        console.log("Upstream error says Overpass Turbo is rate limiting us.");
+        ctx.status = 429;
+        return;
+      }
+
+      // console.log(e);
       ctx.status = 500;
       ctx.body = e;
       return;

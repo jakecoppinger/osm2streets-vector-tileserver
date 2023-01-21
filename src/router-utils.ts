@@ -18,24 +18,27 @@ export async function fetchOverpassXML({ zoom, x, y }:
   { zoom: number, x: number, y: number }): Promise<string> {
   const url = generateOverpassTurboQueryUrl({ zoom, x, y });
   // HIT http://localhost:3000/tile/16/60293/39332 TO TEST :)
+  let osmXML;
   try {
+    console.log("🏹 fetching overpass query...");
     const startTime = performance.now()
     const resp = await fetch(url);
-    const osmXML = await resp.text();
+    osmXML = await resp.text();
     const endTime = performance.now()
     console.log(`📥 Got overpass response, took ${Math.floor(endTime - startTime)} milliseconds`)
-    if (osmXML === undefined) {
-      throw Error("Error: OSM XML is undefined")
-    }
-    if(osmXML.length < 300) {
-      console.log(osmXML);
-      throw Error("OSM XML length is short - likely unexpected output");
-    }
-    return osmXML;
-
   } catch (e) {
-    throw Error("ERROR: Failed to make request to overpass. Is the Docker container running?");
+    throw Error(`ERROR: Failed to make request to overpass. Is the Docker container running?. e is ${e}`);
   }
+  if (osmXML === undefined) {
+    throw Error("Error: OSM XML is undefined")
+  }
+  // if(osmXML.length < 300) {
+  //   throw Error("OSM XML length is short - likely unexpected output");
+  // }
+  if (osmXML.includes('rate_limited')) {
+    throw Error("Overpass Turbo is rate limiting us");
+  }
+  return osmXML;
 }
 
 /** Returns true if a given param string is a valid number.

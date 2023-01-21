@@ -8,8 +8,12 @@ import vtpbf from 'vt-pbf';
 /**
  * Fetch XML from overpass turbo and create the JS street network object[
 */
-export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promise<JsStreetNetwork> {
+export async function createStreetNetwork({ zoom, x, y }: TileCoordinate): Promise<JsStreetNetwork | null> {
   const osmXML = await fetchOverpassXML({ zoom, x, y });
+  if(osmXML.includes('node id') === false) {
+    console.log("No nodes found in overpass XML - must be middle of nowhere");
+    return null;
+  }
 
   const boundaryGeojson = "";
 
@@ -68,17 +72,17 @@ export function networkToVectorTileBuffer(network: JsStreetNetwork, { zoom, x, y
 
   const missingTile = tiles.findIndex(tile => tile === null) !== -1;
   if (missingTile) {
-    throw Error("Error: Coudn't get one of the tiles from geojsonvt");
+    console.log("Error: Coudn't get one of the tiles from geojsonvt");
   }
 
   // This is a Uint8Array
   const rawArray = vtpbf.fromGeojsonVt(
     {
-      // See order in `featuresToQuery`
-      geometry: tiles[0],
-      lanePolygons: tiles[1],
-      laneMarkings: tiles[2],
-      intersectionMarkings: tiles[3]
+      // See order in `featuresToQuery`. This probably needs a refactor
+      geometry: tiles[0] ? tiles[0] : undefined,
+      lanePolygons: tiles[1] ? tiles[1] : undefined,
+      laneMarkings: tiles[2] ? tiles[2] : undefined,
+      intersectionMarkings: tiles[3] ? tiles[3]: undefined
     });
   const buf = Buffer.from(rawArray);
   return buf;

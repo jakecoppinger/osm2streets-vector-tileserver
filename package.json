@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "watch-build-start": "ls src/*.* | entr -rcs \"npm run  build && npm run start\"",
-    "start": "node  --trace-warnings  ./dist/app.js 2> /dev/null",
-    "start:show-errors": "node  --trace-warnings  ./dist/app.js",
+    "start": "node --max_old_space_size=4096 --trace-warnings  ./dist/app.js 2> /dev/null",
+    "start:show-errors": "node --max_old_space_size=4096 --trace-warnings  ./dist/app.js",
     "build": "tsc",
     "test": "npx jest test/*",
     "test:watch": "ls test/*.ts src/*.ts src/**/*.ts | entr -rcs 'yarn test'"

@@ -1,4 +1,6 @@
+import { OVERPASS_API } from "./config";
 import { TileCoordinate } from "./interfaces";
+
 
 // from https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#ECMAScript_(JavaScript/ActionScript,_etc.)
 export function tile2long(x: number, z: number): number {
@@ -8,6 +10,7 @@ export function tile2lat(y: number, z: number): number {
   const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
   return (180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))));
 }
+
 
 export function generateOverpassTurboQueryUrl({ zoom, x, y }: TileCoordinate): string {
   // https://gis.stackexchange.com/questions/17278/calculate-lat-lon-bounds-for-individual-tile-generated-from-gdal2tiles
@@ -19,21 +22,18 @@ export function generateOverpassTurboQueryUrl({ zoom, x, y }: TileCoordinate): s
   const NE_long = tile2long(x + 1, zoom); // bad 
   const NE_lat = tile2lat(y, zoom);
 
-
   // southern-most latitude, western-most longitude, northern-most latitude, eastern-most longitude.
   const bbox = `${SW_lat},${SW_long},${NE_lat},${NE_long}`;
   const query = `(nwr(${bbox}); node(w)->.x; <;); out meta;`;
-  const url = `http://localhost:12345/api/interpreter?data=${query}`;
+  const url = `${OVERPASS_API}api/interpreter?data=${query}`;
 
-  // Don't hit this API too hard please!
-  // const url = `https://overpass-api.de/api/interpreter?data=${query}`;
   return url;
 }
 
 
-export function calculateTileCoordsForZoom({zoom, x, y}: TileCoordinate, targetZoom: number): TileCoordinate | null {
+export function calculateTileCoordsForZoom({ zoom, x, y }: TileCoordinate, targetZoom: number): TileCoordinate | null {
   if (targetZoom === zoom) {
-    return {zoom, x, y };
+    return { zoom, x, y };
   }
   // Larger number means more zoomed in
   if (zoom < targetZoom) {
@@ -48,7 +48,7 @@ export function calculateTileCoordsForZoom({zoom, x, y}: TileCoordinate, targetZ
     yIterator = Math.floor(yIterator / 2);
     zoomIterator -= 1;
   }
-  return {zoom: targetZoom, x: xIterator, y: yIterator };
+  return { zoom: targetZoom, x: xIterator, y: yIterator };
 }
 
 export function delay(ms: number) {
